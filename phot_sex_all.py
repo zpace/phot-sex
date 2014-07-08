@@ -42,32 +42,6 @@ plt.legend(loc = 'best')
 plt.show()
 print np.shape(coords.T)
 
-#now try clustering with DBSCAN
-db = DBSCAN(eps = 2., min_samples = 8).fit(coords)
-core_samples = db.core_sample_indices_
-labels = db.labels_
-n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-
-import pylab as pl
-
-unique_labels = set(labels)
-colors = pl.cm.Spectral(np.linspace(0, 1, len(unique_labels)))
-for k, col in zip(unique_labels, colors):
-	if k == -1:
-		col = 'k'
-		markersize = 6
-	class_members = [index[0] for index in np.argwhere(labels == k)]
-	cluster_core_samples = [index for index in core_samples if labels[index] == k]
-	for index in class_members:
-		x = coords[index]
-		if index in core_samples and k != -1:
-			markersize = 14
-		else:
-			markersize = 6
-		plt.plot(x[0], x[1], 'o', markerfacecolor = col, markeredgecolor = 'k', markersize = markersize)
-		
-plt.show()
-
 '''
 #### stellar photometry, normalized to largest aperture
 star_flux = c['FLUX_APER'][stars,:]
