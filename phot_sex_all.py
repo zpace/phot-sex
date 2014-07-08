@@ -75,14 +75,6 @@ def obj_phot(x, y, maxdist = 3):
 		
 	#ds9.set('exit')
 	return COG, COG_e
-	
-def COG(data, norm_radius = 0.8):
-	'''
-	Given an *array* of aperture-dependent flux and a radius (in arcseconds) to normalize to, 
-	interpolate to find the value at max, normalize to that value, and plot a COG.
-	''' 
-	apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
-	
 
 
 coords = np.array([ [2284, 2204], [3380, 2051], [2778, 1481], [2810, 3210], [3043, 1691] ])
@@ -91,6 +83,13 @@ i = 0
 COG, COG_e = obj_phot(coords[i, 0], coords[i, 1])
 
 #plot COGs, renormalizing to 0.8"
+apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+
+#set up the plots
+fig, ((ax1, ax2, ax3, ax4), (ax5, ax6, ax7, ax8)) = plt.subplots(nrows = 4, ncols = 2)
+plt.tight_layout()
+
+#write a function to plot a COG
 
 
 '''
