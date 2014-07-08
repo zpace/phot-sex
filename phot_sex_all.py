@@ -2,72 +2,96 @@ from astropy import table
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
+import scipy.spatial as sps
+import pysao
 
-cat = {'105': table.Table.read('105_cat.fits', hdu=2), '125': table.Table.read('125_cat.fits', hdu=2), 
-'140': table.Table.read('140_cat.fits', hdu=2), '160': table.Table.read('160_cat.fits', hdu=2), 
-'435': table.Table.read('435_cat.fits', hdu=2), '606': table.Table.read('606_cat.fits', hdu=2), 
-'814': table.Table.read('814_cat.fits', hdu=2), 'K': table.Table.read('K_cat.fits', hdu=2)}
+def cat_compare():
+	cat = {'105': table.Table.read('105_cat.fits', hdu=2), '125': table.Table.read('125_cat.fits', hdu=2), 
+	'140': table.Table.read('140_cat.fits', hdu=2), '160': table.Table.read('160_cat.fits', hdu=2), 
+	'435': table.Table.read('435_cat.fits', hdu=2), '606': table.Table.read('606_cat.fits', hdu=2), 
+	'814': table.Table.read('814_cat.fits', hdu=2), 'K': table.Table.read('K_cat.fits', hdu=2)}
 
-#### select stars based on their small half-light radii
+	#### select stars based on their small half-light radii
 
-colors = ['DarkOliveGreen', 'Indigo', 'DarkOrange', 'RosyBrown', 'Red', 'RoyalBlue', 'MediumSeaGreen', 'Yellow']
-coords = np.array([ [] ])
+	colors = ['DarkOliveGreen', 'Indigo', 'DarkOrange', 'RosyBrown', 'Red', 'RoyalBlue', 'MediumSeaGreen', 'Yellow']
+	coords = np.array([ [] ])
 
-for i, key in enumerate(cat.keys()):
-	c = cat[key]
-	stars = (c['MAG_AUTO'] < 25) & (c['FLUX_RADIUS'][:,0] < 2.5)
-	print 'Number of stars in band', key, ':', sum(stars)
-	stars = c[stars]
-	plt.scatter(stars['Y_IMAGE'], stars['X_IMAGE'], color = colors[i], marker = '.', label = key)
-	coord_i = np.vstack((stars['Y_IMAGE'], stars['X_IMAGE']))
-	#print coord_i
-	if i == 0:
-		coords = coord_i
-	else:
-		coords = np.append(coords, coord_i, axis = 1)
-	#if i < 2: print coords
-	
-	'''
-	plt.scatter(c['MAG_AUTO'], c['FLUX_RADIUS'][:,0], alpha=0.5)
-	plt.scatter(c['MAG_AUTO'][stars], c['FLUX_RADIUS'][stars,0], alpha=0.5, color='red')
-	plt.title('Objects in SExtractor Catalog, F105')
-	plt.xlabel('MAG_AUTO')
-	plt.xlim([15., 35.])
-	plt.ylabel('FLUX_RADIUS')
-	plt.ylim([0., 250.])
-	plt.show()
-	'''
-plt.title('Star Positions')
-plt.legend(loc = 'best')
-plt.show()
-print np.shape(coords.T)
-coords = coords.T
-
-#now try clustering with DBSCAN
-db = DBSCAN(eps = 2., min_samples = 8).fit(coords)
-core_samples = db.core_sample_indices_
-labels = db.labels_
-n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-
-import pylab as pl
-
-unique_labels = set(labels)
-colors = pl.cm.Spectral(np.linspace(0, 1, len(unique_labels)))
-for k, col in zip(unique_labels, colors):
-	if k == -1:
-		col = 'k'
-		markersize = 6
-	class_members = [index[0] for index in np.argwhere(labels == k)]
-	cluster_core_samples = [index for index in core_samples if labels[index] == k]
-	for index in class_members:
-		x = coords[index]
-		if index in core_samples and k != -1:
-			markersize = 14
+	for i, key in enumerate(cat.keys()):
+		c = cat[key]
+		stars = (c['MAG_AUTO'] < 25) & (c['FLUX_RADIUS'][:,0] < 2.5)
+		print 'Number of stars in band', key, ':', sum(stars)
+		stars = c[stars]
+		plt.scatter(stars['Y_IMAGE'], stars['X_IMAGE'], color = colors[i], marker = '.', label = key)
+		coord_i = np.vstack((stars['Y_IMAGE'], stars['X_IMAGE']))
+		#print coord_i
+		if i == 0:
+			coords = coord_i
 		else:
-			markersize = 6
-		plt.plot(x[0], x[1], 'o', markerfacecolor = col, markeredgecolor = 'k', markersize = markersize)
+			coords = np.append(coords, coord_i, axis = 1)
+		#if i < 2: print coords
+	
+		'''
+		plt.scatter(c['MAG_AUTO'], c['FLUX_RADIUS'][:,0], alpha=0.5)
+		plt.scatter(c['MAG_AUTO'][stars], c['FLUX_RADIUS'][stars,0], alpha=0.5, color='red')
+		plt.title('Objects in SExtractor Catalog, F105')
+		plt.xlabel('MAG_AUTO')
+		plt.xlim([15., 35.])
+		plt.ylabel('FLUX_RADIUS')
+		plt.ylim([0., 250.])
+		plt.show()
+		'''
+	plt.title('Star Positions')
+	plt.legend(loc = 'best')
+	plt.show()
+	print np.shape(coords.T)
+	coords = coords.T
+
+#it looks like the object detection isn't as robust as I had hoped
+
+#now I guess we just input star coords manually, get the nearest entry, and make the growth curves from that
+
+def obj_phot(x, y, maxdist = 3):
+	'''
+	Given supplied coordinates (as they appear in ds9, not raw FITS format), 
+	give closest object and its encircled-light COG points in all bands.
+	'''
+	cat = {'105': table.Table.read('105_cat.fits', hdu=2), '125': table.Table.read('125_cat.fits', hdu=2), 
+	'140': table.Table.read('140_cat.fits', hdu=2), '160': table.Table.read('160_cat.fits', hdu=2), 
+	'435': table.Table.read('435_cat.fits', hdu=2), '606': table.Table.read('606_cat.fits', hdu=2), 
+	'814': table.Table.read('814_cat.fits', hdu=2), 'K': table.Table.read('K_cat.fits', hdu=2)}
+	
+	COG = {}
+	COG_e = {}
+	#ds9 = pysao.ds9() #can look at images, if necessary
+	
+	for key in cat.keys():
+		#find the nearest object to the supplied coordinates in each band, and reject if it's too far away
+		y_a = cat[key]['Y_IMAGE']
+		x_a = cat[key]['X_IMAGE']
+		tree = sps.KDTree(zip(x_a, y_a))
+		print key + ':\t', tree.query([x, y], distance_upper_bound = 3)
+		COG[key] = np.array(cat[key]['FLUX_APER'][tree.query([x, y])[1]])
+		COG_e[key] = np.array(cat[key]['FLUXERR_APER'][tree.query([x, y])[1]])
 		
-plt.show()
+	#ds9.set('exit')
+	return COG, COG_e
+	
+def COG(data, norm_radius = 0.8):
+	'''
+	Given an *array* of aperture-dependent flux and a radius (in arcseconds) to normalize to, 
+	interpolate to find the value at max, normalize to that value, and plot a COG.
+	''' 
+	apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+	
+
+
+coords = np.array([ [2284, 2204], [3380, 2051], [2778, 1481], [2810, 3210], [3043, 1691] ])
+bands = {'105': 1050, '125': 1250, '140': 1400, '160': 1600, '435': 435, '606': 606, '814': 814, 'K': 2200}
+i = 0
+COG, COG_e = obj_phot(coords[i, 0], coords[i, 1])
+
+#plot COGs, renormalizing to 0.8"
+
 
 '''
 #### stellar photometry, normalized to largest aperture
