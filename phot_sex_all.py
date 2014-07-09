@@ -75,13 +75,7 @@ def obj_phot(x, y, maxdist = 3):
 		
 	#ds9.set('exit')
 	return COG, COG_e
-
-
-coords = np.array([ [2284, 2204], [3380, 2051], [2778, 1481], [2810, 3210], [3043, 1691] ])
-bands = {'105': 1050, '125': 1250, '140': 1400, '160': 1600, '435': 435, '606': 606, '814': 814, 'K': 2200}
-i = 0
-COG, COG_e = obj_phot(coords[i, 0], coords[i, 1])
-
+	
 def SED(data, error, aperture):
 	'''
 	input a COG dictionary (data) with all bands (such as from obj_phot), along with a 
@@ -103,47 +97,42 @@ def SED(data, error, aperture):
 	#plt.yscale('log', basex = 10)
 	#plt.show()
 	return np.asarray(vals), np.asarray(errs)
-	
+
+#Generate COG dicts for a star
+coords = np.array([ [2284, 2204], [3380, 2051], [2778, 1481], [2810, 3210], [3043, 1691] ])
+bands = {'105': 1055.2, '125': 1248.6, '140': 1392.3, '160': 1536.9, '435': 429.7, '606': 590.7, '814': 833.3, 'K': 2200}
+#check the center of the K-band
+bands_wid = {'105': 265/2., '125': 284.5/2., '140': 384/2., '160': 268.3/2., '435': 103.8/2., '606': 234.2/2., '814': 251.1/2., 'K': 200.}
+i = 4
+'''
+COG, COG_e = obj_phot(coords[i, 0], coords[i, 1])
+
+#now make an SED with a bunch of different apertures for a star	
 vals, errs = SED(COG, COG_e, 1.2)
-for a in [.1, .2, .3, .4, .5, .6, .8, 1., 1.2, 1.4, 1.6]:
+for a in [.2, .4, .6, .9, 1.2]:
 	vals, errs = SED(COG, COG_e, a)
-	plt.errorbar(np.asarray(bands.values())/1000., vals, yerr = errs, marker = 'x', linestyle = 'None', label = str(a) + '"')
+	plt.errorbar(np.asarray(bands.values())/1000., vals, xerr = np.asarray(bands_wid.values())/1000., yerr = errs, marker = 'x', linestyle = 'None', label = str(a) + '"')
 plt.xscale('log')
 plt.yscale('log')
 plt.xlabel('wavelength (microns)')
 plt.ylabel('Flux')
+plt.title('SED for several apertures')
 plt.legend(loc= 'best', title = 'Apertures')
 plt.show()
-
-print type(bands.values())
-
-'''
-#### stellar photometry, normalized to largest aperture
-star_flux = c['FLUX_APER'][stars,:]
-star_flux = (star_flux.T / star_flux[:,-1]).T
 '''
 
-'''
-### plot curves of growth, renormalizing to 0.8"
-apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
-for i in range(stars.sum()):
-    yi = np.interp(0.8, apers/2., star_flux[i,:])
-    #yi=1
-    plt.plot(apers/2, star_flux[i,:]/yi, alpha=0.2, color='black', label = 'Star ' + str(i))
-plt.title('Stellar Curves of Growth, F105')
-plt.xlabel('Aperture radius (arcseconds)')
-plt.xlim([0., 2.])
-plt.ylabel('Fraction of max flux')
-plt.ylim([0., 1.])
-'''
-
-'''
-#### WFC3 IHB values
-r_ihb = np.array([0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50, 0.60, 0.80, 1.00, 1.50, 2.00])
-f_ihb = np.array([.502, .653, .762, .813, .833, .859, .884, .897, .924, .941, .965, .975])
-
-yi = np.interp(0.8, r_ihb, f_ihb)
-plt.plot(r_ihb, f_ihb/yi, color='red', alpha=0.9, linewidth=2, zorder=-2, label = 'WFC3 IHB')
-plt.legend(loc = 'best', labelspacing = 0.2, prop={'size':8})
-'''
+#now do the same for Y1
+Y1_coords = np.array([1575, 3527])
+COG, COG_e = obj_phot(Y1_coords[0], Y1_coords[1])
+vals, errs = SED(COG, COG_e, 1.2)
+for a in [.5, 1.5, 2.5]:
+	vals, errs = SED(COG, COG_e, a)
+	plt.errorbar(np.asarray(bands.values())/1000., vals, xerr = np.asarray(bands_wid.values())/1000., yerr = errs, marker = 'x', linestyle = 'None', label = str(a) + '"')
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel('wavelength (microns)')
+plt.ylabel('Flux')
+plt.title('SED for several apertures')
+plt.legend(loc= 'best', title = 'Apertures')
 plt.show()
+#We're getting detection in all bands (!!!)
