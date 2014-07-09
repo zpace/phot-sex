@@ -82,15 +82,40 @@ bands = {'105': 1050, '125': 1250, '140': 1400, '160': 1600, '435': 435, '606': 
 i = 0
 COG, COG_e = obj_phot(coords[i, 0], coords[i, 1])
 
-#plot COGs, renormalizing to 0.8"
-apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+def SED(data, error, aperture):
+	'''
+	input a COG dictionary (data) with all bands (such as from obj_phot), along with a 
+	maximum aperture (diameter, in arcseconds), normalize to that aperture, and return an 
+	SED at that aperture
+	'''
+	vals = []
+	errs = []
+	apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+	for key in data.keys():
+		norm_val = np.interp(aperture, apers/2., data[key])
+		vals.append(norm_val)
+		norm_err = np.interp(aperture, apers/2., error[key])
+		errs.append(norm_err)
+		#plt.errorbar(bands[key], norm_val, yerr = norm_err, marker = 'x', color = 'k')
+	#plt.xlabel('Wavelength (nm)')
+	#plt.ylabel('Log10 of Flux')
+	#plt.title('SED at aperture d = ' + str(aperture) + '"')
+	#plt.yscale('log', basex = 10)
+	#plt.show()
+	return np.asarray(vals), np.asarray(errs)
+	
+vals, errs = SED(COG, COG_e, 1.2)
+for a in [.1, .2, .3, .4, .5, .6, .8, 1., 1.2, 1.4, 1.6]:
+	vals, errs = SED(COG, COG_e, a)
+	plt.errorbar(np.asarray(bands.values())/1000., vals, yerr = errs, marker = 'x', linestyle = 'None', label = str(a) + '"')
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel('wavelength (microns)')
+plt.ylabel('Flux')
+plt.legend(loc= 'best', title = 'Apertures')
+plt.show()
 
-#set up the plots
-fig, ((ax1, ax2, ax3, ax4), (ax5, ax6, ax7, ax8)) = plt.subplots(nrows = 4, ncols = 2)
-plt.tight_layout()
-
-#write a function to plot a COG
-
+print type(bands.values())
 
 '''
 #### stellar photometry, normalized to largest aperture
