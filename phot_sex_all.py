@@ -106,7 +106,8 @@ bands_wid = {'105': 265/2., '125': 284.5/2., '140': 384/2., '160': 268.3/2., '43
 i = 4
 '''
 COG, COG_e = obj_phot(coords[i, 0], coords[i, 1])
-
+'''
+'''
 #now make an SED with a bunch of different apertures for a star	
 vals, errs = SED(COG, COG_e, 1.2)
 for a in [.2, .4, .6, .9, 1.2]:
@@ -125,7 +126,9 @@ plt.show()
 Y1_coords = np.array([1575, 3527])
 COG, COG_e = obj_phot(Y1_coords[0], Y1_coords[1])
 vals, errs = SED(COG, COG_e, 1.2)
-for a in [.5, 1.5, 2.5]:
+
+'''
+for a in [2.5, 3.5, 4.5, 5.5]:
 	vals, errs = SED(COG, COG_e, a)
 	plt.errorbar(np.asarray(bands.values())/1000., vals, xerr = np.asarray(bands_wid.values())/1000., yerr = errs, marker = 'x', linestyle = 'None', label = str(a) + '"')
 plt.xscale('log')
@@ -135,4 +138,15 @@ plt.ylabel('Flux')
 plt.title('SED for several apertures')
 plt.legend(loc= 'best', title = 'Apertures')
 plt.show()
+'''
 #We're getting detection in all bands (!!!)
+
+#now for the heck of it, make a COG for Y1 in all bands simultaneously
+apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+for key in COG.keys():
+	plt.errorbar(apers, COG[key]/COG[key][7], marker = 'x', label = key)
+
+plt.legend(loc = 'best')
+plt.xlim([0., 8*.06])
+plt.ylim([0., 1.])
+plt.show()
