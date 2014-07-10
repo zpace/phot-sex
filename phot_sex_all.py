@@ -140,15 +140,14 @@ COG, COG_e = obj_phot(coords[i, 0], coords[i, 1])
 #'''
 #now make an SED with a bunch of different apertures for a star	
 for a in [.12, .4]:
-	print 'aper:', a
+	#print 'aper:', a
 	vals, errs, keys = SED(COG, COG_e, a)
 	l = np.asarray([bands[key] for key in keys])
 	lw = np.asarray([bands_wid[key] for key in keys])
-	print uJ_v(vals, keys)
-	print uJ_v(errs, keys)
+	#print uJ_v(vals, keys)
+	#print uJ_v(vals + errs, keys) - uJ_v(vals, keys)
 	#print l, lw, keys
-	plt.errorbar(l/1000., uJ_v(vals, keys), xerr = lw/1000., yerr = errs, marker = 'x', linestyle = 'None', label = str(np.round(a, decimals = 1)) + '"')
-#plt.xscale('log')
+	plt.errorbar(l/1000., uJ_v(vals, keys), xerr = lw/1000., yerr = uJ_v(vals + errs, keys) - uJ_v(vals, keys), marker = 'x', linestyle = 'None', label = str(np.round(a, decimals = 1)) + '"')
 #plt.yscale('log')
 plt.xlabel('wavelength (microns)')
 plt.ylabel('flux (uJ)')
@@ -157,24 +156,25 @@ plt.legend(loc = 'best', title = 'ap. diam.')
 plt.show()
 #'''
 
-'''
 #get data for Y1
 COG, COG_e = obj_phot(Y1_coords[0], Y1_coords[1])
-vals, errs = SED(COG, COG_e, max_aper)
 #COG_plot(COG, COG_e, max_aper) #galaxy COG isn't very instructive
 
 #now do the same for Y1
-for a in [2.]:
+for a in [1., 1.5, 2., 3.]:
+	#print 'aper:', a
 	vals, errs, keys = SED(COG, COG_e, a)
-	#print 'aperture:', a
-	#print vals, errs
-	plt.errorbar(np.asarray(bands.values())/1000., vals, xerr = np.asarray(bands_wid.values())/1000., yerr = errs, marker = 'x', linestyle = 'None', label = str(np.round(a, decimals = 1)) + '"')
-#plt.xscale('log')
+	l = np.asarray([bands[key] for key in keys])
+	lw = np.asarray([bands_wid[key] for key in keys])
+	#print uJ_v(vals, keys)
+	#print uJ_v(vals + errs, keys) - uJ_v(vals, keys)
+	#print l, lw, keys
+	plt.errorbar(l/1000., uJ_v(vals, keys), xerr = lw/1000., yerr = uJ_v(vals + errs, keys) - uJ_v(vals, keys), marker = 'x', linestyle = 'None', label = str(np.round(a, decimals = 1)) + '"')
 #plt.yscale('log')
 plt.xlabel('wavelength (microns)')
-plt.ylabel('flux')
+plt.ylabel('flux (uJy)')
 plt.title('Galaxy SED for several apertures')
 plt.legend(loc = 'best', title = 'Ap. diam.')
 plt.show()
-'''
-#We're getting detection in all bands (!!!)
+
+#We're getting detection in all bands (!!!) (maybe)
