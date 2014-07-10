@@ -69,7 +69,7 @@ def obj_phot(x, y, maxdist = 3):
 		y_a = cat[key]['Y_IMAGE']
 		x_a = cat[key]['X_IMAGE']
 		tree = sps.KDTree(zip(x_a, y_a))
-		print key + ':\t', tree.query([x, y], distance_upper_bound = 3)
+		#print key + ':\t', tree.query([x, y], distance_upper_bound = 3)
 		COG[key] = np.array(cat[key]['FLUX_APER'][tree.query([x, y])[1]])
 		COG_e[key] = np.array(cat[key]['FLUXERR_APER'][tree.query([x, y])[1]])
 		
@@ -118,6 +118,8 @@ def SED(data, error, max_aper):
 		keys.append(key)
 	return np.asarray(vals), np.asarray(errs), keys
 
+# =====
+
 #Generate COG dicts for a star
 coords = np.array([ [2284, 2204], [3380, 2051], [2778, 1481], [2810, 3210], [3043, 1691] ])
 Y1_coords = np.array([1575, 3527])
@@ -137,9 +139,9 @@ COG, COG_e = obj_phot(coords[i, 0], coords[i, 1])
 #vals, errs, keys = SED(COG, COG_e, max_aper)
 #COG_plot(COG, COG_e, max_aper)
 
-#'''
+'''
 #now make an SED with a bunch of different apertures for a star	
-for a in [.12, .4]:
+for a in [.1, .2, .4, .6, .8, 1.2]:
 	#print 'aper:', a
 	vals, errs, keys = SED(COG, COG_e, a)
 	l = np.asarray([bands[key] for key in keys])
@@ -154,22 +156,40 @@ plt.ylabel('flux (uJ)')
 plt.title('Star SED for several apertures')
 plt.legend(loc = 'best', title = 'ap. diam.')
 plt.show()
-#'''
+'''
 
 #get data for Y1
 COG, COG_e = obj_phot(Y1_coords[0], Y1_coords[1])
 #COG_plot(COG, COG_e, max_aper) #galaxy COG isn't very instructive
 
 #now do the same for Y1
-for a in [1., 1.5, 2., 3.]:
+for i, a in enumerate([1., 1.5, 2.]):
 	#print 'aper:', a
 	vals, errs, keys = SED(COG, COG_e, a)
 	l = np.asarray([bands[key] for key in keys])
 	lw = np.asarray([bands_wid[key] for key in keys])
-	#print uJ_v(vals, keys)
-	#print uJ_v(vals + errs, keys) - uJ_v(vals, keys)
-	#print l, lw, keys
-	plt.errorbar(l/1000., uJ_v(vals, keys), xerr = lw/1000., yerr = uJ_v(vals + errs, keys) - uJ_v(vals, keys), marker = 'x', linestyle = 'None', label = str(np.round(a, decimals = 1)) + '"')
+	vals = uJ_v(vals, keys)
+	errs = uJ_v(vals + errs, keys) - uJ_v(vals, keys)
+	
+	#prepare to plot the detections and non-detections separately
+	d_l = l[vals - errs > 0.]
+	nd_l = l[vals - errs <= 0.]
+	
+	d_vals = vals[vals - errs > 0.]
+	nd_vals = vals[vals - errs <= 0.]
+	
+	d_lw = lw[vals - errs > 0.]
+	nd_lw = lw[vals - errs <= 0.]	
+
+	d_errs = errs[vals - errs > 0.]
+	nd_errs = errs[vals - errs <= 0.]
+	
+	colors = ['r', 'g', 'b', 'c', 'm', 'y']
+
+	#upper-limits on non-detections first
+	plt.errorbar(nd_l/1000., nd_vals, xerr = nd_lw/1000., marker = 'v', color = colors[i], linestyle = 'None', markersize = 10)
+	#then detections
+	plt.errorbar(d_l/1000., d_vals, xerr = d_lw/1000., yerr = d_errs, marker = 'x', color = colors[i], linestyle = 'None', label = str(np.round(a, decimals = 2)) + '"')
 #plt.yscale('log')
 plt.xlabel('wavelength (microns)')
 plt.ylabel('flux (uJy)')
