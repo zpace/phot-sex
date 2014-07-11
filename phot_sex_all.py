@@ -86,19 +86,36 @@ def uJ(data, band):
 uJ_v = np.vectorize(uJ)
 	
 def COG_plot(COG, COG_e, max_aper):
+	'''
+	given COG data in many bands, make stellar COG for those bands, and return a correction
+	factor per-band, from min_aper to max_aper, for all apertures in apers
+	'''
 	#now for the heck of it, make a COG in all bands simultaneously
 	apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+	corr = {}
 	for key in COG.keys():
-		norm_val = np.interp(max_aper, apers, COG[key])
-		norm_err = np.interp(max_aper, apers, COG_e[key])
+		max_val = np.interp(max_aper, apers, COG[key])
+		max_val_err = np.interp(max_aper, apers, COG_e[key])
+		corr[key] = max_val/COG[key]
 		#print COG[key]/norm_val
-		plt.errorbar(apers, np.asarray(COG[key])/norm_val, marker = style[key][1], color = style[key][0], label = key)
+		plt.subplot(2,1,1)
+		plt.errorbar(apers, np.asarray(COG[key])/max_val, marker = style[key][1], color = style[key][0], label = key)
+		plt.subplot(2,1,2)
+		plt.plot(apers, np.asarray(corr[key]), marker = style[key][1], color = style[key][0], linestyle = '--')
+	plt.subplot(2,1,1)
 	plt.legend(loc = 'best')
 	plt.xlim([0., max_aper])
 	plt.ylim([0., 1.])
 	plt.xlabel('Aperture Diameter (arcsec)')
 	plt.ylabel('Fraction of flux')
+	
+	plt.subplot(2,1,2)
+	plt.xlim([0., max_aper])
+	plt.ylim([1., 3.])
+	plt.ylabel('Correction factor to ' + str(max_aper))
+	
 	plt.show()
+	return corr
 	
 def SED(data, error, max_aper):
 	'''
@@ -128,16 +145,19 @@ bands = {'105': 1055.2, '125': 1248.6, '140': 1392.3, '160': 1536.9, '435': 429.
 bands_wid = {'105': 265/2., '125': 284.5/2., '140': 384/2., '160': 268.3/2., '435': 103.8/2., '606': 234.2/2., '814': 251.1/2., 'K': 400./2.}
 style = {'105': ['r', 'x'], '125': ['g', 'x'], '140': ['b', 'x'], '160': ['k', 'x'], '435': ['r', 'o'], '606': ['g', 'o'], '814': ['b', 'o'], 'K': ['k', 'o']}
 ZPs = {'105':26.2687, '125':26.25, '140':26.46, '160':25.96, '435':25.65777, '606':26.486, '814':25.937, 'K':26.0}
+apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
 
 #ADJUST THINGS HERE
 i = 1 #which star?
-max_aper = 1.6
+max_aper = 2.0
+min_aper = 0.5
 # =====
 
 #get data for a star
 COG, COG_e = obj_phot(coords[i, 0], coords[i, 1])
 #vals, errs, keys = SED(COG, COG_e, max_aper)
-#COG_plot(COG, COG_e, max_aper)
+corr = COG_plot(COG, COG_e, max_aper)
+#print corr
 
 '''
 #now make an SED with a bunch of different apertures for a star	
@@ -163,12 +183,23 @@ COG, COG_e = obj_phot(Y1_coords[0], Y1_coords[1])
 #COG_plot(COG, COG_e, max_aper) #galaxy COG isn't very instructive
 
 #now do the same for Y1
-for i, a in enumerate([1., 1.5, 2.]):
-	#print 'aper:', a
+for i, a in enumerate([0.5]):
+	print 'aper:', a
 	vals, errs, keys = SED(COG, COG_e, a)
+	
+	#now correct the vals by a factor according to the apertures
+	#correction = np.asarray([np.interp(a, apers, corr[key]) for key in keys])
+	correction = []
+	for key in keys:
+		#print 'band:', key
+		corr_i = np.interp(a, apers, corr[key])
+		#print 'correction:', corr_i
+		correction.append(corr_i)
+	for row in zip(keys, correction): print row
+	
 	l = np.asarray([bands[key] for key in keys])
 	lw = np.asarray([bands_wid[key] for key in keys])
-	vals = uJ_v(vals, keys)
+	vals = uJ_v(vals, keys) * correction
 	errs = uJ_v(vals + errs, keys) - uJ_v(vals, keys)
 	
 	#prepare to plot the detections and non-detections separately
@@ -185,12 +216,20 @@ for i, a in enumerate([1., 1.5, 2.]):
 	nd_errs = errs[vals - errs <= 0.]
 	
 	colors = ['r', 'g', 'b', 'c', 'm', 'y']
+	
+	plt.scatter(l/1000., vals / correction, color = colors[i])
 
 	#upper-limits on non-detections first
 	plt.errorbar(nd_l/1000., nd_vals, xerr = nd_lw/1000., marker = 'v', color = colors[i], linestyle = 'None', markersize = 10)
 	#then detections
 	plt.errorbar(d_l/1000., d_vals, xerr = d_lw/1000., yerr = d_errs, marker = 'x', color = colors[i], linestyle = 'None', label = str(np.round(a, decimals = 2)) + '"')
-#plt.yscale('log')
+plt.yscale('log')
+
+laporte = {'105': 27.5, '125': 26.32, '140': 26.26, '160': 26.25}
+laporte_e = {'105': .08, '125': .04, '140': .03, '160': .04}
+for i, key in enumerate(laporte.keys()):
+	plt.errorbar(bands[key]/1000., 10.**((23.9 - laporte[key])/2.5), xerr = bands_wid[key]/1000., yerr = 10.**((23.9 - laporte[key] + laporte_e[key])/2.5) - 10.**((23.9 - laporte[key])/2.5) ,marker = 'o', color = 'k', linestyle = 'None')
+
 plt.xlabel('wavelength (microns)')
 plt.ylabel('flux (uJy)')
 plt.title('Galaxy SED for several apertures')
