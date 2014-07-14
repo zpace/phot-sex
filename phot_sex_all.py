@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
 import scipy.spatial as sps
+import scipy.interpolate
 import pysao
 
 def cat_compare():
@@ -134,7 +135,53 @@ def SED(data, error, max_aper):
 		errs.append(interp_err)
 		keys.append(key)
 	return np.asarray(vals), np.asarray(errs), keys
+	
+def correct(flux_aper, corr, aper):
+	'''
+	given an array of fluxes at known apertures, return one corrected flux for aperture a
+	'''
+	apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+	
+def cat_construct(base_cat):
+	'''
+	write an ASCII table with corrected photometry for all objects, in all bands 
+	'''
+	all_cats = {'105': table.Table.read('105_cat.fits', hdu=2), '125': table.Table.read('125_cat.fits', hdu=2), 
+	'140': table.Table.read('140_cat.fits', hdu=2), '160': table.Table.read('160_cat.fits', hdu=2), 
+	'435': table.Table.read('435_cat.fits', hdu=2), '606': table.Table.read('606_cat.fits', hdu=2), 
+	'814': table.Table.read('814_cat.fits', hdu=2), 'K': table.Table.read('K_cat.fits', hdu=2)}
 
+	#read base (deepest) catalog into new catalog, which provides reference object numbers used to look up objects in other catalogs
+	cat = table.Table(all_cats[base_cat]['NUMBER', 'X_IMAGE', 'Y_IMAGE'], names = ('NUMBER', 'X_IMAGE', 'Y_IMAGE'))
+	
+	for key in all_cats.keys():
+		print 'Building', key + '\'s catalog...'
+		all_cats['FLUX_APER_' + key] = all_cats[key]['FLUX_APER'] 
+		# we assume that things remain in a sensible order. 
+		# This will silently break if the catalogs are in a different order.
+		# It can be fixed later, if absolutely necessary, by joining two tables on 'NUMBER'
+		all_cats['FLUXERR_APER_' + key] = all_cats[key]['FLUXERR_APER']
+	return all_cats
+	
+def cat_correct(cat, max_aper, aper, COG):
+	'''
+	interpolate FLUX_APER_<BAND> and FLUXERR_APER_<BAND> along known apertures, 
+	then given a max_aper (wherein we assume all flux to be contained), an aperture to use,
+	and a star's COG, return corrected fluxes for all bands (forming an SED)
+	'''
+	apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+	#first do the easy part: interpolate FLUXERR_APER_<BAND>
+	#define a function that simultaneously interpolates one point for many different COGs for a single band
+	#interp_v = np.vectorize(np.interp)
+	#FLUXERR_APER = np.interp(aper, apers, cat['105']['FLUXERR_APER'])
+	fluxerrs = glob.glob(cat.colnames, 'FLUXERR_APER_*')
+	for item in fluxerrs:
+		print 'item:', item
+		err_interp = scipy.interpolate.interp1d(apers, cat[item]['FLUXERR_APER']) #finds a function that fits each individual row
+		FLUXERR_APER = err_interp(aper)
+		#I've mixed up the keys somewhere in here. Need to fix.
+	
+		
 # =====
 
 #Generate COG dicts for a star
@@ -223,7 +270,7 @@ for i, a in enumerate([0.5]):
 	plt.errorbar(nd_l/1000., nd_vals, xerr = nd_lw/1000., marker = 'v', color = colors[i], linestyle = 'None', markersize = 10)
 	#then detections
 	plt.errorbar(d_l/1000., d_vals, xerr = d_lw/1000., yerr = d_errs, marker = 'x', color = colors[i], linestyle = 'None', label = str(np.round(a, decimals = 2)) + '"')
-plt.yscale('log')
+#plt.yscale('log')
 
 laporte = {'105': 27.5, '125': 26.32, '140': 26.26, '160': 26.25}
 laporte_e = {'105': .08, '125': .04, '140': .03, '160': .04}
@@ -237,3 +284,6 @@ plt.legend(loc = 'best', title = 'Ap. diam.')
 plt.show()
 
 #We're getting detection in all bands (!!!) (maybe)
+
+fullcat = cat_construct('160')
+cat_correct(fullcat, max_aper, min_aper, COG)
