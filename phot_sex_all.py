@@ -1,9 +1,10 @@
 from astropy import table
+from astropy.io import ascii
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
 import scipy.spatial as sps
-import scipy.interpolate
+from scipy.interpolate import interp1d
 import pysao
 
 def cat_compare():
@@ -116,6 +117,7 @@ def COG_plot(COG, COG_e, max_aper):
 	plt.ylabel('Correction factor to ' + str(max_aper))
 	
 	plt.show()
+	#print corr
 	return corr
 	
 def SED(data, error, max_aper):
@@ -136,12 +138,6 @@ def SED(data, error, max_aper):
 		keys.append(key)
 	return np.asarray(vals), np.asarray(errs), keys
 	
-def correct(flux_aper, corr, aper):
-	'''
-	given an array of fluxes at known apertures, return one corrected flux for aperture a
-	'''
-	apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
-	
 def cat_construct(base_cat):
 	'''
 	write an ASCII table with corrected photometry for all objects, in all bands 
@@ -152,35 +148,57 @@ def cat_construct(base_cat):
 	'814': table.Table.read('814_cat.fits', hdu=2), 'K': table.Table.read('K_cat.fits', hdu=2)}
 
 	#read base (deepest) catalog into new catalog, which provides reference object numbers used to look up objects in other catalogs
-	cat = table.Table(all_cats[base_cat]['NUMBER', 'X_IMAGE', 'Y_IMAGE'], names = ('NUMBER', 'X_IMAGE', 'Y_IMAGE'))
+	obj_cat = table.Table(all_cats[base_cat]['NUMBER', 'X_IMAGE', 'Y_IMAGE'], names = ('NUMBER', 'X_IMAGE', 'Y_IMAGE'))
 	
+	print 'Building catalog...'
 	for key in all_cats.keys():
-		print 'Building', key + '\'s catalog...'
-		all_cats['FLUX_APER_' + key] = all_cats[key]['FLUX_APER'] 
+		obj_cat['FLUX_APER_' + key] = all_cats[key]['FLUX_APER'] 
 		# we assume that things remain in a sensible order. 
 		# This will silently break if the catalogs are in a different order.
 		# It can be fixed later, if absolutely necessary, by joining two tables on 'NUMBER'
-		all_cats['FLUXERR_APER_' + key] = all_cats[key]['FLUXERR_APER']
-	return all_cats
+		obj_cat['FLUXERR_APER_' + key] = all_cats[key]['FLUXERR_APER']
+	return obj_cat
 	
-def cat_correct(cat, max_aper, aper, COG):
+def cat_correct(obj_cat, max_aper, aper, corr):
 	'''
 	interpolate FLUX_APER_<BAND> and FLUXERR_APER_<BAND> along known apertures, 
 	then given a max_aper (wherein we assume all flux to be contained), an aperture to use,
-	and a star's COG, return corrected fluxes for all bands (forming an SED)
+	and a star's correction dict, return corrected fluxes for all bands (forming an SED)
 	'''
+	import re
 	apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+	#print obj_cat
+	
 	#first do the easy part: interpolate FLUXERR_APER_<BAND>
 	#define a function that simultaneously interpolates one point for many different COGs for a single band
-	#interp_v = np.vectorize(np.interp)
-	#FLUXERR_APER = np.interp(aper, apers, cat['105']['FLUXERR_APER'])
-	fluxerrs = glob.glob(cat.colnames, 'FLUXERR_APER_*')
-	for item in fluxerrs:
-		print 'item:', item
-		err_interp = scipy.interpolate.interp1d(apers, cat[item]['FLUXERR_APER']) #finds a function that fits each individual row
-		FLUXERR_APER = err_interp(aper)
-		#I've mixed up the keys somewhere in here. Need to fix.
+	c = obj_cat.colnames
+	errcols = [item for item in c if 'FLUXERR_APER_' in item]
+	for col in errcols:
+		f = interp1d(apers, obj_cat[col])
+		del obj_cat[col]
+		obj_cat[col] = f(aper)
+	fluxcols = [item for item in c if 'FLUX_APER_' in item]
+	#now interpolate the flux columns
+	for col in fluxcols:
+		f = interp1d(apers, obj_cat[col])
+		del obj_cat[col]
+		obj_cat[col] = f(aper)
 	
+	#take correction dict and interpolate to find the value at max_aper and the value at aper
+	#print corr
+	corr_aper = {}
+	for key in corr.keys():
+		max_ap_value = np.interp(max_aper, apers, corr[key])
+		ap_value = np.interp(aper, apers, corr[key])
+		corr_aper[key] = max_ap_value/ap_value
+		#print key, corr_aper[key]
+	
+	for key in corr_aper.keys():
+		obj_cat['FLUX_APER_' + key] *= corr_aper[key]
+		
+	ascii.write(obj_cat, output = 'A2744_cat.dat')
+		
+	return obj_cat
 		
 # =====
 
@@ -204,7 +222,6 @@ min_aper = 0.5
 COG, COG_e = obj_phot(coords[i, 0], coords[i, 1])
 #vals, errs, keys = SED(COG, COG_e, max_aper)
 corr = COG_plot(COG, COG_e, max_aper)
-#print corr
 
 '''
 #now make an SED with a bunch of different apertures for a star	
@@ -285,5 +302,5 @@ plt.show()
 
 #We're getting detection in all bands (!!!) (maybe)
 
-fullcat = cat_construct('160')
-cat_correct(fullcat, max_aper, min_aper, COG)
+obj_cat = cat_construct('160')
+cat_correct(obj_cat, max_aper, min_aper, corr)
