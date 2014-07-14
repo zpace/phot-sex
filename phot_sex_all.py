@@ -83,7 +83,7 @@ def uJ(data, band):
 	takes a single flux measurement and a band string, and uses the ZP dict to output a
 	flux in uJ (microJanskys)
 	'''
-	return data * 10.**(-0.4 * (ZPs[band] - 23.9))
+	return data * 10.**(-0.4 * (ZPs[band] - 23.9 - band_corr[band]))
 	
 uJ_v = np.vectorize(uJ)
 	
@@ -93,7 +93,7 @@ def COG_plot(COG, COG_e, max_aper):
 	factor per-band, from min_aper to max_aper, for all apertures in apers
 	'''
 	#now for the heck of it, make a COG in all bands simultaneously
-	apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+	apers = np.array([2,3,4,6,8,8.3333333,10,14,20,28,33.3333333,40,60,80,100,160])*0.06
 	corr = {}
 	for key in COG.keys():
 		max_val = np.interp(max_aper, apers, COG[key])
@@ -129,7 +129,7 @@ def SED(data, error, max_aper):
 	vals = []
 	errs = []
 	keys = []
-	apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+	apers = np.array([2,3,4,6,8,8.3333333,10,14,20,28,33.3333333,40,60,80,100,160])*0.06
 	for key in data.keys():
 		interp_val = np.interp(max_aper, apers, data[key])
 		vals.append(interp_val)
@@ -166,7 +166,7 @@ def cat_correct(obj_cat, max_aper, aper, corr):
 	and a star's correction dict, return corrected fluxes for all bands (forming an SED)
 	'''
 	import re
-	apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+	apers = np.array([2,3,4,6,8,8.3333333,10,14,20,28,33.3333333,40,60,80,100,160])*0.06
 	#print obj_cat
 	
 	#first do the easy part: interpolate FLUXERR_APER_<BAND>
@@ -210,7 +210,8 @@ bands = {'105': 1055.2, '125': 1248.6, '140': 1392.3, '160': 1536.9, '435': 429.
 bands_wid = {'105': 265/2., '125': 284.5/2., '140': 384/2., '160': 268.3/2., '435': 103.8/2., '606': 234.2/2., '814': 251.1/2., 'K': 400./2.}
 style = {'105': ['r', 'x'], '125': ['g', 'x'], '140': ['b', 'x'], '160': ['k', 'x'], '435': ['r', 'o'], '606': ['g', 'o'], '814': ['b', 'o'], 'K': ['k', 'o']}
 ZPs = {'105':26.2687, '125':26.25, '140':26.46, '160':25.96, '435':25.65777, '606':26.486, '814':25.937, 'K':26.0}
-apers = np.array([2,3,4,6,8,10,14,20,28,40,60,80,100,160])*0.06
+band_corr = {'105':.016, '125':.012, '140':.010, '160':.008, '435':.058, '606':.040, '814':.024, 'K':.05}
+apers = np.array([2,3,4,6,8,8.3333333,10,14,20,28,33.3333333,40,60,80,100,160])*0.06
 
 #ADJUST THINGS HERE
 i = 1 #which star?
