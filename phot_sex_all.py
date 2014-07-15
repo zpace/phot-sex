@@ -131,10 +131,12 @@ def SED(data, error, max_aper):
 	keys = []
 	apers = np.array([2,3,4,6,8,8.3333333,10,14,20,28,33.3333333,40,60,80,100,160])*0.06
 	for key in data.keys():
+		
 		interp_val = np.interp(max_aper, apers, data[key])
 		vals.append(interp_val)
 		interp_err = np.interp(max_aper, apers, error[key])
-		errs.append(interp_err)
+		#errs.append(interp_err)
+		errs.append(empty_aper_errs[key])
 		keys.append(key)
 	return np.asarray(vals), np.asarray(errs), keys
 	
@@ -233,6 +235,7 @@ bands_wid = {'105': 265/2., '125': 284.5/2., '140': 384/2., '160': 268.3/2., '43
 style = {'105': ['r', 'x'], '125': ['g', 'x'], '140': ['b', 'x'], '160': ['k', 'x'], '435': ['r', 'o'], '606': ['g', 'o'], '814': ['b', 'o'], 'K': ['k', 'o']}
 ZPs = {'105':26.2687, '125':26.25, '140':26.46, '160':25.96, '435':25.65777, '606':26.486, '814':25.937, 'K':26.0}
 band_corr = {'105':.016, '125':.012, '140':.010, '160':.008, '435':.058, '606':.040, '814':.024, 'K':.05}
+empty_aper_errs = {'105':.0280, '125':.0289, '140':.0357, '160':.0262, '435':.0156, '606':.0338, '814':.0165, 'K':.1107}
 apers = np.array([2,3,4,6,8,8.3333333,10,14,20,28,33.3333333,40,60,80,100,160])*0.06
 
 #ADJUST THINGS HERE
@@ -310,13 +313,18 @@ for i, a in enumerate([0.5]):
 	plt.errorbar(nd_l/1000., nd_vals, xerr = nd_lw/1000., marker = 'v', color = colors[i], linestyle = 'None', markersize = 10)
 	#then detections
 	plt.errorbar(d_l/1000., d_vals, xerr = d_lw/1000., yerr = d_errs, marker = 'x', color = colors[i], linestyle = 'None', label = str(np.round(a, decimals = 2)) + '"')
+	#now plot data from IRAC channel (data is already in uJy)
+	plt.errorbar([3.55, 4.493], [.0961, .3770], xerr = [.75, 1.015], yerr = [.0769, .1086], marker = 'x', color = colors[i], linestyle = 'None')
 #plt.yscale('log')
 
 laporte = {'105': 27.5, '125': 26.32, '140': 26.26, '160': 26.25}
 laporte_e = {'105': .08, '125': .04, '140': .03, '160': .04}
 for i, key in enumerate(laporte.keys()):
 	plt.errorbar(bands[key]/1000., 10.**((23.9 - laporte[key])/2.5), xerr = bands_wid[key]/1000., yerr = 10.**((23.9 - laporte[key] + laporte_e[key])/2.5) - 10.**((23.9 - laporte[key])/2.5) ,marker = 'o', color = 'k', linestyle = 'None', label = 'Laporte' if i == 0 else '')
-
+#now plot Laporte's IRAC measurements: first detection, then non-detection
+plt.errorbar(4.493, 10**((23.9 - 25.16)/2.5), xerr = 1.015, yerr = 10**((23.9-25.16-.16)/2.5) - 10**((23.9 - 25.16)/2.5), marker = 'x', color = 'k')
+plt.errorbar(3.55, 10**((23.9 - 25.48)/2.5), xerr = .75, marker = 'v', color = 'k')
+		
 plt.xlabel('wavelength (microns)')
 plt.ylabel('flux (uJy)')
 plt.title('Galaxy SED for several apertures')
