@@ -141,6 +141,9 @@ def SED(data, error, max_aper):
 def cat_construct(base_cat):
 	'''
 	write an ASCII table with corrected photometry for all objects, in all bands 
+	Add FLUX_AUTO in F160 and convert/correct into uJy
+	Convert Counts to uJy, w/corrections
+	Flux_radius 1 & 2 (PHOT_RADIUS) for F160
 	'''
 	all_cats = {'105': table.Table.read('105_cat.fits', hdu=2), '125': table.Table.read('125_cat.fits', hdu=2), 
 	'140': table.Table.read('140_cat.fits', hdu=2), '160': table.Table.read('160_cat.fits', hdu=2), 
@@ -148,15 +151,21 @@ def cat_construct(base_cat):
 	'814': table.Table.read('814_cat.fits', hdu=2), 'K': table.Table.read('K_cat.fits', hdu=2)}
 
 	#read base (deepest) catalog into new catalog, which provides reference object numbers used to look up objects in other catalogs
-	obj_cat = table.Table(all_cats[base_cat]['NUMBER', 'X_IMAGE', 'Y_IMAGE'], names = ('NUMBER', 'X_IMAGE', 'Y_IMAGE'))
+	obj_cat = table.Table(all_cats[base_cat]['NUMBER', 'X_IMAGE', 'Y_IMAGE', 'X_WORLD', 'Y_WORLD', 'FLUX_AUTO', 'FLUXERR_AUTO', 'FLUX_RADIUS'],
+	 names = ('NUMBER', 'X_IMAGE', 'Y_IMAGE', 'X_WORLD', 'Y_WORLD', 'FLUX_AUTO_160', 'FLUXERR_AUTO_160', 'FLUX_RADII'))
+	 
+	obj_cat['FLUX_RADIUS_1'] = obj_cat['FLUX_RADII'][:,0]
+	obj_cat['FLUX_RADIUS_2'] = obj_cat['FLUX_RADII'][:,1]
+	del obj_cat['FLUX_RADII']
 	
 	print 'Building catalog...'
 	for key in all_cats.keys():
-		obj_cat['FLUX_APER_' + key] = all_cats[key]['FLUX_APER'] 
-		# we assume that things remain in a sensible order. 
-		# This will silently break if the catalogs are in a different order.
+		obj_cat['FLUX_APER_' + key] = all_cats[key]['FLUX_APER']
+		# **we assume that things remain in a sensible order**
+		# This will SILENTLY BREAK if the catalogs are in a different order.
 		# It can be fixed later, if absolutely necessary, by joining two tables on 'NUMBER'
 		obj_cat['FLUXERR_APER_' + key] = all_cats[key]['FLUXERR_APER']
+
 	return obj_cat
 	
 def cat_correct(obj_cat, max_aper, aper, corr):
@@ -193,8 +202,21 @@ def cat_correct(obj_cat, max_aper, aper, corr):
 		corr_aper[key] = max_ap_value/ap_value
 		#print key, corr_aper[key]
 	
-	for key in corr_aper.keys():
-		obj_cat['FLUX_APER_' + key] *= corr_aper[key]
+	#now convert fluxes and errors to uJy using uJ_v fnc (which applies extinction and ZP correction, as well)
+	for errcolname in errcols:
+		if 'K' in col: band = 'K'
+		else: band = col[-3:]
+		fluxcolname = 'FLUX_APER_' + band
+		corr_flux = uJ_v(obj_cat[fluxcolname], band)
+		corr_fluxerr = uJ_v(obj_cat[fluxcolname] + obj_cat[errcolname], band) - uJ_v(obj_cat[fluxcolname], band)
+		obj_cat[fluxcolname] = corr_flux
+		obj_cat[errcolname] = corr_fluxerr
+	
+	#finally, correct the 'FLUX_AUTO_160' band
+	flux_auto = uJ_v(obj_cat['FLUX_AUTO_160'], '160')
+	fluxerr_auto = uJ_v(obj_cat['FLUX_AUTO_160'] + obj_cat['FLUXERR_AUTO_160'], '160') - flux_auto
+	obj_cat['FLUX_AUTO_160'] = flux_auto
+	obj_cat['FLUXERR_AUTO_160'] = fluxerr_auto
 		
 	ascii.write(obj_cat, output = 'A2744_cat.dat')
 		
@@ -282,7 +304,7 @@ for i, a in enumerate([0.5]):
 	
 	colors = ['r', 'g', 'b', 'c', 'm', 'y']
 	
-	plt.scatter(l/1000., vals / correction, color = colors[i])
+	#plt.scatter(l/1000., vals / correction, color = colors[i])
 
 	#upper-limits on non-detections first
 	plt.errorbar(nd_l/1000., nd_vals, xerr = nd_lw/1000., marker = 'v', color = colors[i], linestyle = 'None', markersize = 10)
@@ -293,12 +315,13 @@ for i, a in enumerate([0.5]):
 laporte = {'105': 27.5, '125': 26.32, '140': 26.26, '160': 26.25}
 laporte_e = {'105': .08, '125': .04, '140': .03, '160': .04}
 for i, key in enumerate(laporte.keys()):
-	plt.errorbar(bands[key]/1000., 10.**((23.9 - laporte[key])/2.5), xerr = bands_wid[key]/1000., yerr = 10.**((23.9 - laporte[key] + laporte_e[key])/2.5) - 10.**((23.9 - laporte[key])/2.5) ,marker = 'o', color = 'k', linestyle = 'None')
+	plt.errorbar(bands[key]/1000., 10.**((23.9 - laporte[key])/2.5), xerr = bands_wid[key]/1000., yerr = 10.**((23.9 - laporte[key] + laporte_e[key])/2.5) - 10.**((23.9 - laporte[key])/2.5) ,marker = 'o', color = 'k', linestyle = 'None', label = 'Laporte' if i == 0 else '')
 
 plt.xlabel('wavelength (microns)')
 plt.ylabel('flux (uJy)')
 plt.title('Galaxy SED for several apertures')
 plt.legend(loc = 'best', title = 'Ap. diam.')
+#plt.yscale('log')
 plt.show()
 
 #We're getting detection in all bands (!!!) (maybe)
