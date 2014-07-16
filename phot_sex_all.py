@@ -293,28 +293,28 @@ for i, a in enumerate([0.5]):
 	errs = uJ_v(vals + errs, keys) - uJ_v(vals, keys)
 	
 	#prepare to plot the detections and non-detections separately
-	d_l = l[vals - errs > 0.]
-	nd_l = l[vals - errs <= 0.]
+	d_l = l[vals > 0.]
+	nd_l = l[vals <= 0.]
 	
-	d_vals = vals[vals - errs > 0.]
-	nd_vals = vals[vals - errs <= 0.]
+	d_vals = vals[vals > 0.]
+	nd_vals = vals[vals <= 0.]
 	
-	d_lw = lw[vals - errs > 0.]
-	nd_lw = lw[vals - errs <= 0.]	
+	d_lw = lw[vals > 0.]
+	nd_lw = lw[vals <= 0.]	
 
-	d_errs = errs[vals - errs > 0.]
-	nd_errs = errs[vals - errs <= 0.]
+	d_errs = errs[vals > 0.]
+	nd_errs = errs[vals <= 0.]
 	
 	colors = ['r', 'g', 'b', 'c', 'm', 'y']
 	
 	#plt.scatter(l/1000., vals / correction, color = colors[i])
 
 	#upper-limits on non-detections first
-	plt.errorbar(nd_l/1000., nd_vals, xerr = nd_lw/1000., marker = 'v', color = colors[i], linestyle = 'None', markersize = 10)
+	plt.errorbar(nd_l/1000., nd_vals, xerr = nd_lw/1000., marker = 'v', color = colors[i], linestyle = 'None')
 	#then detections
 	plt.errorbar(d_l/1000., d_vals, xerr = d_lw/1000., yerr = d_errs, marker = 'x', color = colors[i], linestyle = 'None', label = str(np.round(a, decimals = 2)) + '"')
 	#now plot data from IRAC channel (data is already in uJy)
-	plt.errorbar([3.55, 4.493], [.0961, .3770], xerr = [.75, 1.015], yerr = [.0769, .1086], marker = 'x', color = colors[i], linestyle = 'None')
+	plt.errorbar([3.55, 4.493], [.0961, .3770], xerr = [.75/2, 1.015/2], yerr = [.0769, .1086], marker = 'x', color = colors[i], linestyle = 'None')
 #plt.yscale('log')
 
 laporte = {'105': 27.5, '125': 26.32, '140': 26.26, '160': 26.25}
@@ -322,8 +322,8 @@ laporte_e = {'105': .08, '125': .04, '140': .03, '160': .04}
 for i, key in enumerate(laporte.keys()):
 	plt.errorbar(bands[key]/1000., 10.**((23.9 - laporte[key])/2.5), xerr = bands_wid[key]/1000., yerr = 10.**((23.9 - laporte[key] + laporte_e[key])/2.5) - 10.**((23.9 - laporte[key])/2.5) ,marker = 'o', color = 'k', linestyle = 'None', label = 'Laporte' if i == 0 else '')
 #now plot Laporte's IRAC measurements: first detection, then non-detection
-plt.errorbar(4.493, 10**((23.9 - 25.16)/2.5), xerr = 1.015, yerr = 10**((23.9-25.16-.16)/2.5) - 10**((23.9 - 25.16)/2.5), marker = 'x', color = 'k')
-plt.errorbar(3.55, 10**((23.9 - 25.48)/2.5), xerr = .75, marker = 'v', color = 'k')
+plt.errorbar(4.493, 10**((23.9 - 25.16)/2.5), xerr = 1.015/2, yerr = 10**((23.9-25.16-.16)/2.5) - 10**((23.9 - 25.16)/2.5), marker = 'x', color = 'k')
+plt.errorbar(3.55, 10**((23.9 - 25.48)/2.5), xerr = .75/2, marker = 'v', color = 'k')
 		
 plt.xlabel('wavelength (microns)')
 plt.ylabel('flux (uJy)')
@@ -331,6 +331,11 @@ plt.title('Galaxy SED for several apertures')
 plt.legend(loc = 'best', title = 'Ap. diam.')
 #plt.yscale('log')
 plt.show()
+
+print 'Final photometry in uJy for Abell 2744-Y1'
+for row in zip(keys, vals, errs): print row[0] + '\t' + str(np.round(row[1], decimals = 4)) + '\t +/- \t' + str(np.round(row[2], decimals = 4)) + ' uJy'
+print 'IRAC1' + '\t' + str(.0961) + '\t +/- \t' + str(.0769) + ' uJy'
+print 'IRAC1' + '\t' + str(.3770) + '\t +/- \t' + str(.1086) + ' uJy'
 
 #We're getting detection in all bands (!!!) (maybe)
 
