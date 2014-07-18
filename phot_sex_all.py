@@ -178,11 +178,11 @@ def cat_correct(obj_cat, max_aper, aper, corr):
 	'''
 	import re
 	apers = np.array([2,3,4,6,8,8.3333333,10,14,20,28,33.3333333,40,60,80,100,160])*0.06
-	#print obj_cat
 	
 	#first do the easy part: interpolate FLUXERR_APER_<BAND>
 	#define a function that simultaneously interpolates one point for many different COGs for a single band
 	c = obj_cat.colnames
+	#print c
 	errcols = [item for item in c if 'FLUXERR_APER_' in item]
 	for col in errcols:
 		f = interp1d(apers, obj_cat[col])
@@ -195,22 +195,30 @@ def cat_correct(obj_cat, max_aper, aper, corr):
 		del obj_cat[col]
 		obj_cat[col] = f(aper)
 	
+	#print obj_cat['FLUX_APER_105']	
+	#print corr
+	
 	#take correction dict and interpolate to find the value at max_aper and the value at aper
 	#print corr
 	corr_aper = {}
 	for key in corr.keys():
-		max_ap_value = np.interp(max_aper, apers, corr[key])
-		ap_value = np.interp(aper, apers, corr[key])
-		corr_aper[key] = max_ap_value/ap_value
-		#print key, corr_aper[key]
+		corr_val = np.interp(aper, apers, corr[key])
+		fluxcolname = 'FLUX_APER_' + key
+		#print fluxcolname
+		#print corr_val
+		corr_band = obj_cat[fluxcolname] * corr_val
+		obj_cat[fluxcolname] = corr_band
+		#print obj_cat[fluxcolname]
 	
 	#now convert fluxes and errors to uJy using uJ_v fnc (which applies extinction and ZP correction, as well)
 	for errcolname in errcols:
-		if 'K' in col: band = 'K'
-		else: band = col[-3:]
+		print errcolname
+		if 'K' in errcolname: band = 'K'
+		if 'K' not in errcolname: band = errcolname[-3:]
 		fluxcolname = 'FLUX_APER_' + band
 		corr_flux = uJ_v(obj_cat[fluxcolname], band)
 		corr_fluxerr = uJ_v(obj_cat[fluxcolname] + obj_cat[errcolname], band) - uJ_v(obj_cat[fluxcolname], band)
+		#print corr_flux
 		obj_cat[fluxcolname] = corr_flux
 		obj_cat[errcolname] = corr_fluxerr
 	
