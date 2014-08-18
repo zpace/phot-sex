@@ -1,5 +1,6 @@
 from astropy import table
 from astropy.io import ascii
+import astropy.io.fits as fits
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
@@ -167,6 +168,77 @@ def cat_construct(base_cat):
 		# This will SILENTLY BREAK if the catalogs are in a different order.
 		# It can be fixed later, if absolutely necessary, by joining two tables on 'NUMBER'
 		obj_cat['FLUXERR_APER_' + key] = all_cats[key]['FLUXERR_APER']
+	
+	print 'Preparing empty aperture columns...'
+	obj_cat['EA_ERR_105'] = 0.
+	obj_cat['EA_ERR_125'] = 0.
+	obj_cat['EA_ERR_140'] = 0.
+	obj_cat['EA_ERR_160'] = 0.
+	obj_cat['EA_ERR_435'] = 0.
+	obj_cat['EA_ERR_606'] = 0.
+	obj_cat['EA_ERR_814'] = 0.
+	obj_cat['EA_ERR_K'] = 0.
+		
+	print 'Getting errors from empty apertures...'
+		
+	print '\t 105...'
+	wht_105 = fits.open('105_wht.fits')[0].data
+	wht_105_p = np.percentile((wht_105[wht_105 != 0]).flatten(), 75.)
+	print '\t 125...'
+	wht_125 = fits.open('125_wht.fits')[0].data
+	wht_125_p = np.percentile((wht_125[wht_125 != 0]).flatten(), 75.)
+	print '\t 140...'
+	wht_140 = fits.open('140_wht.fits')[0].data
+	wht_140_p = np.percentile((wht_140[wht_140 != 0]).flatten(), 75.)
+	print '\t 160...'
+	wht_160 = fits.open('160_wht.fits')[0].data
+	wht_160_p = np.percentile((wht_160[wht_160 != 0]).flatten(), 75.)
+	print '\t 435...'
+	wht_435 = fits.open('435_wht.fits')[0].data
+	wht_435_p = np.percentile((wht_435[wht_435 != 0]).flatten(), 75.)
+	print '\t 606...'
+	wht_606 = fits.open('606_wht.fits')[0].data
+	wht_606_p = np.percentile((wht_606[wht_606 != 0]).flatten(), 75.)
+	print '\t 814...'
+	wht_814 = fits.open('814_wht.fits')[0].data
+	wht_814_p = np.percentile((wht_814[wht_814 != 0]).flatten(), 75.)
+	print '\t K...'
+	wht_K = fits.open('814_wht.fits')[0].data
+	wht_K_p = np.percentile((wht_K[wht_K != 0]).flatten(), 75.)
+	
+	#here are the EA pixel noise errors
+	EA_sig_105 = .0280
+	EA_sig_125 = .0289
+	EA_sig_140 = .0357
+	EA_sig_160 = .0262
+	EA_sig_435 = .0156
+	EA_sig_606 = .0338
+	EA_sig_814 = .0165
+	EA_sig_K = .1107
+	
+	for row in obj_cat:
+		#print 'Building empty aperture errors for object #' + str(row['NUMBER'])
+		if row['NUMBER'] == 1:
+			print '105 weight', wht_105[int(row['Y_IMAGE']), int(row['X_IMAGE'])], wht_105_p
+		wht_pix_105 = wht_105[int(row['Y_IMAGE']), int(row['X_IMAGE'])]
+		row['EA_ERR_105'] = EA_sig_105 * np.sqrt(wht_105_p/(wht_pix_105+1))
+		wht_pix_125 = wht_125[int(row['Y_IMAGE']), int(row['X_IMAGE'])]
+		row['EA_ERR_125'] = EA_sig_125 * np.sqrt(wht_125_p/(wht_pix_125+1))
+		wht_pix_140 = wht_105[int(row['Y_IMAGE']), int(row['X_IMAGE'])]
+		row['EA_ERR_140'] = EA_sig_140 * np.sqrt(wht_140_p/(wht_pix_140+1))
+		wht_pix_160 = wht_160[int(row['Y_IMAGE']), int(row['X_IMAGE'])]
+		row['EA_ERR_160'] = EA_sig_160 * np.sqrt(wht_160_p/(wht_pix_160+1))
+		wht_pix_435 = wht_435[int(row['Y_IMAGE']), int(row['X_IMAGE'])]
+		row['EA_ERR_435'] = EA_sig_435 * np.sqrt(wht_435_p/(wht_pix_435+1))
+		wht_pix_606 = wht_606[int(row['Y_IMAGE']), int(row['X_IMAGE'])]
+		row['EA_ERR_606'] = EA_sig_606 * np.sqrt(wht_606_p/(wht_pix_606+1))
+		wht_pix_814 = wht_814[int(row['Y_IMAGE']), int(row['X_IMAGE'])]
+		row['EA_ERR_814'] = EA_sig_814 * np.sqrt(wht_814_p/(wht_pix_814+1))
+		wht_pix_K = wht_K[int(row['Y_IMAGE']), int(row['X_IMAGE'])]
+		row['EA_ERR_K'] = EA_sig_K * np.sqrt(wht_K_p/(wht_pix_K+1))
+
+	#print obj_cat['EA_ERR_105']
+	#a = raw_input('Press ENTER to continue...')
 
 	return obj_cat
 	
@@ -212,15 +284,20 @@ def cat_correct(obj_cat, max_aper, aper, corr):
 	
 	#now convert fluxes and errors to uJy using uJ_v fnc (which applies extinction and ZP correction, as well)
 	for errcolname in errcols:
-		print errcolname
+		#print errcolname
 		if 'K' in errcolname: band = 'K'
 		if 'K' not in errcolname: band = errcolname[-3:]
 		fluxcolname = 'FLUX_APER_' + band
-		corr_flux = uJ_v(obj_cat[fluxcolname], band)
-		corr_fluxerr = uJ_v(obj_cat[fluxcolname] + obj_cat[errcolname], band) - uJ_v(obj_cat[fluxcolname], band)
+		eaerrcolname = 'EA_ERR_' + band
+		#print obj_cat[eaerrcolname]
+		corr_flux = np.around( uJ_v(obj_cat[fluxcolname], band), 5)
+		corr_fluxerr = np.around( uJ_v(obj_cat[fluxcolname] + obj_cat[errcolname], band) - uJ_v(obj_cat[fluxcolname], band), 5)
+		corr_eaerr = np.around( uJ_v(obj_cat[fluxcolname] + obj_cat[eaerrcolname], band) - uJ_v(obj_cat[fluxcolname], band), 5)
 		#print corr_flux
+		#print corr_eaerr
 		obj_cat[fluxcolname] = corr_flux
 		obj_cat[errcolname] = corr_fluxerr
+		obj_cat[eaerrcolname] = corr_eaerr
 	
 	#finally, correct the 'FLUX_AUTO_160' band
 	flux_auto = uJ_v(obj_cat['FLUX_AUTO_160'], '160')
@@ -228,8 +305,8 @@ def cat_correct(obj_cat, max_aper, aper, corr):
 	obj_cat['FLUX_AUTO_160'] = flux_auto
 	obj_cat['FLUXERR_AUTO_160'] = fluxerr_auto
 		
-	ascii.write(obj_cat, output = 'A2744_cat.dat')
-		
+	ascii.write(obj_cat, output = 'A2744_cat_EA.dat')
+	#print obj_cat
 	return obj_cat
 		
 # =====
